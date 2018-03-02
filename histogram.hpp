@@ -5,6 +5,8 @@
 #include <vector>
 #include <string>
 
+#include "image.hpp"
+
 class Histogram:
       public std::vector<double>
 {
@@ -24,6 +26,16 @@ public:
 	 * Return the most common colour in this histogram.
 	 */
 	int most_common_colour () const;
+
+
+	int number_different_pixels (unsigned int same_colour_level) const
+	{
+		int result = 0;
+		for (unsigned int i = same_colour_level; i < NUMBER_COLOUR_LEVELS; i++)
+			result += (*this) [i];
+		return result;
+	}
+
 };
 
 typedef std::vector<Histogram> VectorHistograms;

@@ -2,6 +2,7 @@
 #include "image.hpp"
 
 namespace po = boost::program_options;
+using namespace std;
 
 #define PO_CSV_FILENAME "csv-file"
 #define PO_DELTA_FRAME "delta-frame"

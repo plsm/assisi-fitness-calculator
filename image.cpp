@@ -5,7 +5,7 @@
 
 const unsigned int NUMBER_COLOUR_LEVELS = 256;
 
-void compute_histogram (const cv::Mat &image, Histogram &histogram)
+void compute_histogram (const cv::Mat &image, const cv::Mat &mask, Histogram &histogram)
 {
 	// Quantize the saturation to 32 levels
 	int sbins = NUMBER_COLOUR_LEVELS;
@@ -17,7 +17,7 @@ void compute_histogram (const cv::Mat &image, Histogram &histogram)
 	cv::MatND hist;
 	// we compute the histogram from the 0-th
 	int channels[] = {0};
-	cv::calcHist (&image, 1, channels, cv::Mat (), // do not use mask
+	cv::calcHist (&image, 1, channels, mask,
 	          hist, 1, histSize, ranges,
 	          true, // the histogram is uniform
 	          false);

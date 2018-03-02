@@ -14,6 +14,7 @@ int main (int argc, char *argv[])
 {
 	po::variables_map vm = process_options (argc, argv);
 	FitnessFunction fit (vm);
+	fit.compute_fitness ();
 	return 0;
 }
 
