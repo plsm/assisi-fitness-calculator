@@ -17,12 +17,13 @@ class FitnessFunction
 	std::vector<Image> ROIs;
 	std::queue<Image> cache;
 	FILE *file;
+	FILE *fitness_recomputed_file;
 	void compute_pixel_count_difference (const Image &background, const Image &current_frame);
 	/**
 	 * @brief ok_file_pixel_count_difference Checks if the file with pixel count difference data exists and is write-protected.
 	 * Failure means the computation of the data did not finished.
 	 * @param path
-	 * @return
+	 * @return false if the file does not exist or is not write protected.
 	 */
 	bool ok_file_pixel_count_difference (const std::string &path);
 	/**
@@ -33,6 +34,8 @@ class FitnessFunction
 	 */
 	void create_file_pixel_count_difference (const std::string &path);
 	void close_file_pixel_count_difference (const std::string &path);
+
+	void create_file_fitness_recomputed ();
 public:
 	FitnessFunction (const boost::program_options::variables_map &vm);
 	void compute_fitness ();

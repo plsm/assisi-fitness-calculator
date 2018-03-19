@@ -11,6 +11,9 @@ public:
 	const unsigned int delta_frame;
 	const unsigned int same_colour_threshold;
 	const unsigned int same_colour_level;
+	const unsigned int first_frame;
+	const unsigned int last_frame;
+	const unsigned int PCD_previous_threshold;
 	const unsigned int delta_velocity;
 	AnalysisParameters (const boost::program_options::variables_map &vm);
 	static boost::program_options::options_description program_options ();

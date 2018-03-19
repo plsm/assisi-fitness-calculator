@@ -1,7 +1,8 @@
 #include <vector>
 #include <string>
-
 #include <iostream>
+#include <unistd.h>
+#include <sys/stat.h>
 
 #include "fitness-function.hpp"
 #include "csv.hpp"
@@ -30,34 +31,82 @@ void FitnessFunction::compute_fitness ()
 	const unsigned int length_ROI_filename = strlen (ROI_template) + 4 + 1;
 	char ROI_filename [length_ROI_filename + 1];
 	string previous_base_folder;
+	this->create_file_fitness_recomputed ();
 	while (videos_analyse.next ()) {
 		CSVReader::CSVRow row = videos_analyse.row ();
 		const string &base_folder = row.column (0);
+		const string &pixel_count_difference_filename = row.column (1);
 		cout << base_folder << '\n';
-		Image background_normal = read_image (base_folder + this->evolutionary_parameters.background_path);
-		Image background_HE;
-		cv::equalizeHist (background_normal, background_HE);
-		if (base_folder != previous_base_folder) {
-			for (unsigned int ROI_index = 0; ROI_index < this->evolutionary_parameters.number_ROIs; ROI_index++) {
-				snprintf (ROI_filename, length_ROI_filename, ROI_template, ROI_index);
-				ROIs [ROI_index] = read_image (base_folder + ROI_filename);
+		if (!this->ok_file_pixel_count_difference (pixel_count_difference_filename)) {
+			Image background_normal = read_image (base_folder + this->evolutionary_parameters.background_path);
+			Image background_HE;
+			cv::equalizeHist (background_normal, background_HE);
+			if (base_folder != previous_base_folder) {
+				for (unsigned int ROI_index = 0; ROI_index < this->evolutionary_parameters.number_ROIs; ROI_index++) {
+					snprintf (ROI_filename, length_ROI_filename, ROI_template, ROI_index);
+					ROIs [ROI_index] = read_image (base_folder + ROI_filename);
+				}
+				previous_base_folder = base_folder;
 			}
-			previous_base_folder = base_folder;
+			while (!this->cache.empty ()) {
+				this->cache.pop ();
+			}
+			this->create_file_pixel_count_difference (pixel_count_difference_filename);
+			for (unsigned int frame_index = 1; frame_index <= this->evolutionary_parameters.number_frames; frame_index++) {
+				snprintf (frame_filename, length_frame_filename, frame_template, frame_index);
+				Image current_frame_normal = read_image (base_folder + frame_filename);
+				Image current_frame_HE;
+				cv::equalizeHist (current_frame_normal, current_frame_HE);
+				this->compute_pixel_count_difference (background_HE, current_frame_HE);
+			}
+			this->close_file_pixel_count_difference (pixel_count_difference_filename);
 		}
-		while (!this->cache.empty ()) {
-			this->cache.pop ();
+		int new_fitness = 0;
+		CSVReader pixel_count_difference_csv (pixel_count_difference_filename);
+		pixel_count_difference_csv.next (); // skip header row
+		for (unsigned int frame_index = 1; frame_index < this->analysis_parameters.first_frame; frame_index++) {
+			pixel_count_difference_csv.next ();
 		}
-		this->create_file_pixel_count_difference (row.column (1));
-		for (unsigned int frame_index = 1; frame_index <= this->evolutionary_parameters.number_frames; frame_index++) {
-			snprintf (frame_filename, length_frame_filename, frame_template, frame_index);
-			Image current_frame_normal = read_image (base_folder + frame_filename);
-			Image current_frame_HE;
-			cv::equalizeHist (current_frame_normal, current_frame_HE);
-			this->compute_pixel_count_difference (background_HE, current_frame_HE);
+		for (unsigned int frame_index = this->analysis_parameters.first_frame; frame_index <= this->analysis_parameters.last_frame; frame_index++) {
+			pixel_count_difference_csv.next ();
+			CSVReader::CSVRow row = pixel_count_difference_csv.row ();
+			unsigned int previous_active = std::stoi (row.column (1));
+			unsigned int previous_passive = std::stoi (row.column (3));
+			if (previous_active < this->analysis_parameters.PCD_previous_threshold)
+				new_fitness++;
+			if (previous_passive < this->analysis_parameters.PCD_previous_threshold)
+				new_fitness--;
 		}
-		fclose (this->file);
+		fprintf (this->fitness_recomputed_file, "%s,%s,%s,%s,%s,%s,%s,%s,%d\n",
+		         row.column (2).c_str (),
+		         row.column (3).c_str (),
+		         row.column (4).c_str (),
+		         row.column (5).c_str (),
+		         row.column (6).c_str (),
+		         row.column (7).c_str (),
+		         row.column (8).c_str (),
+		         row.column (9).c_str (),
+		         new_fitness);
 	}
+	fclose (this->fitness_recomputed_file);
 }
+
+void FitnessFunction::create_file_fitness_recomputed ()
+{
+	const char fitness_recomputed_template[] = "fitness-recomputed_SCT=%d_PCDPT=%d.csv";
+	const unsigned int length_fitness_recomputed_filename = strlen (fitness_recomputed_template) + 4 + 4 + 1;
+	char fitness_recomputed_filename [length_fitness_recomputed_filename];
+	snprintf (
+	         fitness_recomputed_filename,
+	         length_fitness_recomputed_filename,
+	         fitness_recomputed_template,
+	         this->analysis_parameters.same_colour_threshold,
+	         this->analysis_parameters.PCD_previous_threshold);
+	this->fitness_recomputed_file = fopen (fitness_recomputed_filename, "w");
+	fprintf (this->fitness_recomputed_file, "\"run\",\"generation\",\"bee.set\",\"iteration\",\"frequency\",\"amplitude\",\"pause\",\"old.fitness\",\"new.fitness\"\n");
+
+}
+
 
 void FitnessFunction::compute_pixel_count_difference (const cv::Mat &background, const cv::Mat &current_frame)
 {
@@ -112,3 +161,4 @@ void FitnessFunction::close_file_pixel_count_difference (const string &path)
 	fclose (file);
 	chmod (path.c_str (), S_IRUSR);
 }
+
